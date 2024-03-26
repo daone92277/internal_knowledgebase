@@ -1,0 +1,52 @@
+Converting the provided bash script into PowerShell for use on Windows or in environments that support PowerShell is straightforward. The main concepts remain the same, but the syntax and some commandlets change to fit the PowerShell environment.
+
+Here's how you can write the script in PowerShell:
+
+```powershell
+# Container and SAS Token
+$containerUrl = "https://ueuat28file01.blob.core.windows.net/newcobillinglogs"
+$sasToken = "?sv=2021-12-02&ss=bfqt&srt=sco&sp=rwlacupitfx&se=2024-05-03T02:51:14Z&st=2023-05-02T18:51:14Z&spr=https&sig=5dYMIoMRT2iEQjDfrMbNHJACHzetUOuOYhumK+AZ1j8="
+
+# Get the date 30 days ago
+$dateThreshold = (Get-Date).AddDays(-30).ToString("yyyy-MM-ddTHH:mmZ")
+
+# List blobs in the container
+$storageAccountName = "ueuat28file01"
+$containerName = "newcobillinglogs"
+$prefix = "Logs/"
+
+# Install Azure PowerShell module if not already installed
+# Install-Module -Name Az.Storage -Scope CurrentUser -Repository PSGallery -Force
+
+# Connect to Azure
+# Connect-AzAccount
+
+# Get a context for the storage account and container with the SAS token
+$ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
+
+# List and delete blobs older than 30 days
+$blobs = Get-AzStorageBlob -Container $containerName -Context $ctx -Prefix $prefix | Where-Object { $_.LastModified -lt $dateThreshold }
+
+foreach ($blob in $blobs) {
+    Remove-AzStorageBlob -Blob $blob.Name -Container $containerName -Context $ctx
+    Write-Host "Deleted $($blob.Name)"
+}
+```
+
+**Key Points:**
+
+- This PowerShell script uses `New-AzStorageContext` to create a context with your storage account using the SAS token provided. 
+- `Get-AzStorageBlob` retrieves all blobs in the specified container and with the specified prefix (`Logs/`). It filters these based on their `LastModified` property to find blobs older than 30 days.
+- The script then loops through these blobs, deleting each with `Remove-AzStorageBlob`.
+
+**Before Running the Script:**
+
+1. **Install Azure PowerShell Module:** If you haven't already installed the Azure PowerShell module, you can do so by uncommenting the `Install-Module` command. This requires administrative privileges and internet access.
+2. **Connect to Azure:** If your script requires a connection to Azure for other purposes, you can use `Connect-AzAccount`. However, for operations solely using the SAS token, this is not necessary.
+
+**Security and Testing:**
+
+- Be careful with your SAS token to avoid unauthorized access.
+- Test this script in a non-critical environment or with a limited set of data first to ensure it works as expected without unintended consequences.
+
+This script is designed to run on PowerShell 5.1 or newer, including PowerShell 7.x. Adjustments may be necessary based on your specific Azure environment and PowerShell version.
