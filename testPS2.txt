@@ -1,0 +1,12 @@
+# Define variables
+$containerSASUrl = "https://ueuat28file01.blob.core.windows.net/newcobillinglogs?sv=2021-12-02&ss=bfqt&srt=sco&sp=rwlacupitfx&se=2024-05-03T02:51:14Z&st=2023-05-02T18:51:14Z&spr=https&sig=5dYMIoMRT2iEQjDfrMbNHJACHzetUOuOYhumK+AZ1j8="
+$dateThreshold = (Get-Date).AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+# List blobs in the container and filter by last modified date
+$blobsToDelete = az storage blob list --container-name newcobillinglogs --account-name ueuat28file01 --sas-token "?sv=2021-12-02&ss=bfqt&srt=sco&sp=rwlacupitfx&se=2024-05-03T02:51:14Z&st=2023-05-02T18:51:14Z&spr=https&sig=5dYMIoMRT2iEQjDfrMbNHJACHzetUOuOYhumK+AZ1j8=" --query "[?properties.lastModified<'$dateThreshold'].name" --output tsv
+
+# Loop through the blobs and delete each using azcopy
+foreach ($blobName in $blobsToDelete) {
+    $blobUrl = $containerSASUrl + "/" + $blobName
+    azcopy rm $blobUrl --recursive=false
+}
