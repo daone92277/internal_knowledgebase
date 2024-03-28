@@ -40,7 +40,7 @@ foreach ($blob in $blobs) {
       $env:AZCOPY_CONCURRENCY_VALUE = "AUTO" 
       $env:AZCOPY_CRED_TYPE = "Anonymous" 
 
-      & azcopy rm $blobUrl --recursive --log-level=INFO >> $logfile
+      & azcopy remove $blobUrl --recursive --log-level=INFO >> $logfile
 
       $env:AZCOPY_CONCURRENCY_VALUE = "" 
       $env:AZCOPY_CRED_TYPE = "" 
@@ -51,3 +51,5 @@ foreach ($blob in $blobs) {
       Write-Error $_.Exception >> $logfile  
  }
 }
+
+pause
