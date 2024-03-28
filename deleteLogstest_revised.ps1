@@ -11,10 +11,11 @@ $logfile = "deletion_log.txt"
 $ctx = New-AzStorageContext -StorageAccountName "uedev28file01" -SasToken $sasToken
 
 try {
-    # Get subfolders within the Logs folder
-    $subFolders = Get-AzStorageDirectory -Prefix $mainFolder -Context $ctx | 
-                  Where-Object { $_.IsDirectory } |
-                  Select-Object -ExpandProperty Name 
+    # Get files directly within subfolders 
+    $subFolders = Get-AzStorageBlob -Container "systemtest4-uedev28app87" -Prefix $mainFolder -Context $ctx | 
+                  Where-Object { !$_.ICloudBlob.IsPrefix } | 
+                  Select-Object -ExpandProperty Name | 
+                  Get-Unique  # Ensure unique folder names
 
     foreach ($subFolder in $subFolders) {
         $folderPath = $subFolder.Substring($mainFolder.Length)  # Remove prefix
@@ -22,29 +23,10 @@ try {
         # Display the subfolder being scanned
         Write-Host "Scanning container: systemtest4-uedev28app87/$folderPath for logs older than 30 days..."
 
-        $blobs = Get-AzStorageBlob -Container "systemtest4-uedev28app87" -Context $ctx | Where-Object {
-            $_.Name -match "^$folderPath/\d{8}_" -and $_.Name -like "*.log"
-        }
+        $blobs = Get-AzStorageFile -Container "systemtest4-uedev28app87" -Path $folderPath -Context $ctx | 
+                 Where-Object { $_.Name -match "\d{8}_" -and $_.Name -like "*.log" } 
 
-        $blobCount = ($blobs | Measure-Object).Count
-        Write-Host "$blobCount blobs found in the target folder."
-
-        foreach ($blob in $blobs) {
-            $blobDatePrefix = $blob.Name.Split('/')[1].Substring(0, 8)
-            $dateThreshold = (Get-Date).AddDays(-30).ToString("yyyyMMdd")
-
-            if ([int]$blobDatePrefix -le [int]$dateThreshold) {
-                $blobUrl = "$containerUrl/$($blob.Name)$sasToken"
-                Write-Host "Attempting to delete: $($blob.Name)"
-
-                try {
-                    & azcopy remove "$blobUrl" --log-level=ERROR
-                    Write-Host "Successfully deleted: $($blob.Name)" | Out-File $logfile -Append
-                } catch {
-                    Write-Host "Failed to delete: $($blob.Name)" | Out-File $logfile -Append
-                }
-            }
-        }
+        # ... (Rest of your blob processing logic) ...
     }
 } catch {
     Write-Host "An error occurred: $_" | Out-File $logfile -Append
