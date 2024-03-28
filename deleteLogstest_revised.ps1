@@ -4,6 +4,12 @@ $mainFolder = "billingLogs" # The main folder containing other folders
 $sasToken = "?sv=2022-11-02&ss=bf&srt=sco&sp=rwdlaciytfx&se=2024-07-02T04:44:17Z&st=2024-03-13T20:44:17Z&spr=https&sig=03UTZZVFIZ8wXpBVruzSkfhBzmlpaTm8uuf%2BOdQDbLg%3D"
 $logfile = "deletion_log.txt"  
 
+# Check if logfile can be created
+if (!(Test-Path $logfile)) { 
+    Write-Error "Cannot create log file at $logfile. Check path and permissions."
+    Exit  
+} 
+
 # Enhanced date handling
 $dateThreshold = Get-Date -Format "yyyyMMdd" 
 $datePrefix = $dateThreshold + "_" 
@@ -34,14 +40,14 @@ foreach ($blob in $blobs) {
       $env:AZCOPY_CONCURRENCY_VALUE = "AUTO" 
       $env:AZCOPY_CRED_TYPE = "Anonymous" 
 
-      & azcopy rm $blobUrl --from-to=BlobTrash --recursive --log-level=INFO >> $logfile
+      & azcopy rm $blobUrl --recursive --log-level=INFO >> $logfile
 
       $env:AZCOPY_CONCURRENCY_VALUE = "" 
       $env:AZCOPY_CRED_TYPE = "" 
 
-      Write-Host "Moved blob to BlobTrash: $($blob.Name)"  
+      Write-Host ("Deleted blob: $($blob.Name)" | Out-File $logfile -Append)  
  } catch {
-      Write-Error "Error moving blob to BlobTrash: $($blob.Name) - $($_.Exception.Message)" 
+      Write-Error "Error deleting blob: $($blob.Name) - $($_.Exception.Message)" 
       Write-Error $_.Exception >> $logfile  
  }
 }
