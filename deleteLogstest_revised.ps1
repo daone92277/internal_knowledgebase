@@ -37,3 +37,10 @@ foreach ($blob in $blobs) {
   Write-Error $_.Exception >> $logfile  
  }
 }
+
+$env:AZCOPY_CONCURRENCY_VALUE = "AUTO";
+$env:AZCOPY_CRED_TYPE = "Anonymous";
+./azcopy.exe remove "https://uedev28file01.blob.core.windows.net/systemtest4-uedev28app87/billingLogs/Logs/BRCCLogs/20231228_BRCC_Trace.log?sv=2022-11-02&ss=bf&srt=sco&sp=rwdlaciytfx&se=2024-07-02T04%3A44%3A17Z&st=2024-03-13T20%3A44%3A17Z&spr=https&sig=03UTZZVFIZ8wXpBVruzSkfhBzmlpaTm8uuf%2BOdQDbLg%3D" --from-to=BlobTrash --recursive --log-level=INFO;
+$env:AZCOPY_CONCURRENCY_VALUE = "";
+$env:AZCOPY_CRED_TYPE = "";
+
