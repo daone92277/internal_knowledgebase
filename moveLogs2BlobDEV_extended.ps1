@@ -54,6 +54,7 @@ function Remove-FilesFromShare {
 }
 
 
+
 # Set your variables (Make sure to update these with the correct values)
 $FileShareUrl   = "https://uedev28file02.file.core.windows.net/dev87"
 $BlobContainerUrl = "https://uedev28file01.blob.core.windows.net/systemtest4/DbLogs"
