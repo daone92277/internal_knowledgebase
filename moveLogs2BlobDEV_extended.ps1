@@ -22,21 +22,15 @@ function Remove-FilesFromShare {
         [string]$SasToken
     )
 
-    $context = New-AzStorageContext -StorageAccountName "uedev28file02" -SasToken $SasToken
+    $storageAccountName = $FileShareUrl -split "\." | Select-Object -First 1
+    $storageAccountName = $storageAccountName.Split("//")[-1]
+    $context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $SasToken
     $shareName = $FileShareUrl.Split("/")[-1]
     $share = Get-AzStorageShare -Name $shareName -Context $context
 
     # Define a script block for recursive deletion
     $deleteFilesRecursively = {
         param($dir)
-
-        try {
-            # Get all files in the current directory and delete them
-            Get-AzStorageFile -Share $share -Path $dir | Remove-AzStorageFile
-            Write-Verbose "Files deleted from directory: $dir"
-        } catch {
-            Write-Error "Failed to delete files from directory: $dir - Error: $($_.Exception.Message)"
-        }
 
         # Get all subdirectories in the current directory
         $subDirs = Get-AzStorageDirectory -Share $share -Path $dir
@@ -45,11 +39,20 @@ function Remove-FilesFromShare {
         foreach ($subDir in $subDirs) {
             & $deleteFilesRecursively $subDir.Name
         }
+
+        try {
+            # Get all files in the current directory and delete them
+            Get-AzStorageFile -Share $share -Path $dir | Remove-AzStorageFile -Force
+            Write-Verbose "Files deleted from directory: $dir"
+        } catch {
+            Write-Error "Failed to delete files from directory: $dir - Error: $($_.Exception.Message)"
+        }
     }
 
     # Start the recursive deletion from the root directory
     & $deleteFilesRecursively ""
 }
+
 
 # Set your variables (Make sure to update these with the correct values)
 $FileShareUrl   = "https://uedev28file02.file.core.windows.net/dev87"
