@@ -22,38 +22,39 @@ function Remove-FilesFromShare {
         [string]$SasToken
     )
 
-    $storageAccountName = $FileShareUrl -split "\." | Select-Object -First 1
-    $storageAccountName = $storageAccountName.Split("//")[-1]
-    $context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $SasToken
-    $shareName = $FileShareUrl.Split("/")[-1]
-    $share = Get-AzStorageShare -Name $shareName -Context $context
+    # Extract the storage account name from the URL
+    $storageAccountName = ($FileShareUrl -split "\.")[0].Split("//")[-1]
 
-    # Define a script block for recursive deletion
+    # Create a storage context
+    $context = New-AzureStorageContext -StorageAccountName $storageAccountName -SasToken $SasToken
+
+    # Extract the share name from the URL
+    $shareName = $FileShareUrl.Split("/")[-1]
+
+    # Get the file share
+    $share = Get-AzureStorageShare -Name $shareName -Context $context
+
+    # Recursive delete function
     $deleteFilesRecursively = {
         param($dir)
 
-        # Get all subdirectories in the current directory
-        $subDirs = Get-AzStorageDirectory -Share $share -Path $dir
+        # Get all subdirectories first
+        $subDirs = Get-AzureStorageFile -Share $share.Name -Path $dir -Context $context | Where-Object { $_.GetType().Name -eq "AzureStorageDirectory" }
 
-        # Recursively delete files in the subdirectories
+        # Recursively delete files in subdirectories
         foreach ($subDir in $subDirs) {
             & $deleteFilesRecursively $subDir.Name
         }
 
-        try {
-            # Get all files in the current directory and delete them
-            Get-AzStorageFile -Share $share -Path $dir | Remove-AzStorageFile -Force
-            Write-Verbose "Files deleted from directory: $dir"
-        } catch {
-            Write-Error "Failed to delete files from directory: $dir - Error: $($_.Exception.Message)"
-        }
+        # Delete files in the current directory
+        Get-AzureStorageFile -Share $share.Name -Path $dir -Context $context | Where-Object { $_.GetType().Name -eq "AzureStorageFile" } | Remove-AzureStorageFile -Force -Context $context
+
+        Write-Verbose "Files deleted from directory: $dir"
     }
 
-    # Start the recursive deletion from the root directory
+    # Start the deletion from the root of the share
     & $deleteFilesRecursively ""
 }
-
-
 
 # Set your variables (Make sure to update these with the correct values)
 $FileShareUrl   = "https://uedev28file02.file.core.windows.net/dev87"
