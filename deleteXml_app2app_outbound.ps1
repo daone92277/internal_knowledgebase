@@ -11,38 +11,42 @@ $cutoffDate = (Get-Date).AddDays(-1).Date
 $ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
 
 # Get files from the Azure File Share
-$files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { $_.GetType().Name -eq "CloudFile" }
+$items = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { -not $_.IsDirectory }
 
 # Filter and remove files older than 1 day based on the timestamp in the filename
-foreach ($file in $files) {
+foreach ($item in $items) {
     try {
-        # Attempt to extract the date portion from the filename
-        $dateString = $file.Name -split "_AppToAppFeed_"
-        if ($dateString.Length -lt 2) {
-            Write-Warning "Filename format unexpected for file: $($file.Name)"
-            continue
-        }
-        $datePortion = ($dateString[1] -split "_")[0]
-        $fileDate = [datetime]::ParseExact($datePortion, "MM-dd-yyyy", $null)
-        
-        # Compare the extracted date to the cutoff date
-        if ($fileDate -lt $cutoffDate) {
-            # Construct the full file path
-            $filePath = Join-Path -Path $file.DirectoryPath -ChildPath $file.Name
+        # Check if it's a file and not a directory
+        if ($item.GetType().Name -ne "CloudFileDirectory") {
+            # Attempt to extract the date portion from the filename
+            $dateString = $item.Name -split "_AppToAppFeed_"
+            if ($dateString.Length -lt 2) {
+                Write-Warning "Filename format unexpected for file: $($item.Name)"
+                continue
+            }
+            $datePortion = ($dateString[1] -split "_")[0]
+            $fileDate = [datetime]::ParseExact($datePortion, "MM-dd-yyyy", $null)
             
-            # Remove the file (remove the -WhatIf switch to actually delete the files)
-            Remove-AzStorageFile -ShareName $shareName -Path $filePath -Context $ctx -WhatIf
+            # Compare the extracted date to the cutoff date
+            if ($fileDate -lt $cutoffDate) {
+                # Construct the full file path
+                $filePath = Join-Path -Path $item.DirectoryPath -ChildPath $item.Name
+                
+                # Remove the file (remove the -WhatIf switch to actually delete the files)
+                Remove-AzStorageFile -ShareName $shareName -Path $filePath -Context $ctx -WhatIf
+            }
         }
     } catch [System.Management.Automation.MethodInvocationException] {
-        Write-Warning "Failed to delete file: $($file.Name)"
+        Write-Warning "Failed to delete file: $($item.Name)"
     } catch [System.FormatException] {
-        Write-Warning "Date parsing failed for file: $($file.Name) with date part: $datePortion"
+        Write-Warning "Date parsing failed for file: $($item.Name) with date part: $datePortion"
     } catch {
-        Write-Warning "An unknown error occurred with file: $($file.Name)"
+        Write-Warning "An unknown error occurred with file: $($item.Name)"
     }
 }
 
 pause
+
 
 
 
