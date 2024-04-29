@@ -11,7 +11,7 @@ $cutoffDate = (Get-Date).AddDays(-1).Date
 $ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
 
 # Get files from the Azure File Share
-$files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder
+$files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { $_.GetType().Name -eq "CloudFile" }
 
 # Filter and remove files older than 1 day based on the timestamp in the filename
 foreach ($file in $files) {
@@ -43,7 +43,6 @@ foreach ($file in $files) {
 }
 
 pause
-
 
 
 
