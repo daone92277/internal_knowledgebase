@@ -18,9 +18,11 @@ foreach ($file in $files) {
     try {
         # Attempt to extract the date portion from the filename
         $dateString = $file.Name -split "_AppToAppFeed_"
-        # Correctly split the remaining string to isolate the date part
+        if ($dateString.Length -lt 2) {
+            Write-Warning "Filename format unexpected for file: $($file.Name)"
+            continue
+        }
         $datePortion = ($dateString[1] -split "_")[0]
-        
         $fileDate = [datetime]::ParseExact($datePortion, "MM-dd-yyyy", $null)
         
         # Compare the extracted date to the cutoff date
@@ -31,12 +33,17 @@ foreach ($file in $files) {
             # Remove the file (remove the -WhatIf switch to actually delete the files)
             Remove-AzStorageFile -ShareName $shareName -Path $filePath -Context $ctx -WhatIf
         }
+    } catch [System.Management.Automation.MethodInvocationException] {
+        Write-Warning "Failed to delete file: $($file.Name)"
+    } catch [System.FormatException] {
+        Write-Warning "Date parsing failed for file: $($file.Name) with date part: $datePortion"
     } catch {
-        Write-Warning "Failed to parse date or delete file: $file.Name"
+        Write-Warning "An unknown error occurred with file: $($file.Name)"
     }
 }
 
 pause
+
 
 
 
