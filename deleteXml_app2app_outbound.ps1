@@ -18,10 +18,10 @@ foreach ($file in $files) {
     try {
         # Only process files that are not directories
         if (-not $file.IsDirectory) {
-            # Extract date from the filename assuming the format is "<prefix>_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
+            # Extract date from the filename assuming the format is "<prefix>_Feedback_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
             $fileComponents = $file.Name -split '_'
             if ($fileComponents.Length -ge 5) { # Ensure there are enough parts in the filename
-                $datePart = $fileComponents[4] # Corrected index based on the sample filename
+                $datePart = $fileComponents[3] # Corrected index based on the sample filename
                 $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
                 
                 # Compare the extracted date to the cutoff date
@@ -49,6 +49,7 @@ foreach ($file in $files) {
 }
 
 pause
+
 
 
 
