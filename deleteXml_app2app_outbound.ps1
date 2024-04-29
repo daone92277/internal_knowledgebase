@@ -60,3 +60,23 @@ path : APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToApp
 638490486856700998_AppToAppFeed_04-18-2024_12725.xml
 638490522428709041_AppToAppFeed_04-18-2024_12726.xml
 638490559948810235_AppToAppFeed_04-18-2024_12727.xml
+
+# ***** ADJUST THESE VALUES FOR YOUR ENVIRONMENT *****
+$storageAccountName = "uedev28file02"
+$shareName = "dev87"
+$targetFolder = "APP2APP/SystemTest4/Outbound/Archive"
+$sasToken = "?sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-07-02T04%3A03%3A10Z&st=2024-03-19T20%3A03%3A10Z&spr=https&sig=EJfN%2Br9ZVNGIlYSsemYnEsSCxGfCMtI%2BtOVjHeLxOns%3D"
+
+# Authenticate with Azure Storage
+$ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
+
+# Get files from the Azure File Share, and list properties to check if they are files or directories
+$items = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder
+
+# List each item's properties to check
+foreach ($item in $items) {
+    Write-Host "Name: $($item.Name), Type: $($item.CloudFileDirectory.GetType()), IsDirectory: $($item.IsDirectory)"
+}
+
+# This will help to understand what property should be used to filter out directories accurately.
+
