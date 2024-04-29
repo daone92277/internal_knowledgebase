@@ -20,19 +20,23 @@ foreach ($file in $files) {
         if (-not $file.IsDirectory) {
             # Extract date from the filename assuming the format is "<prefix>_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
             $fileComponents = $file.Name -split '_'
-            $datePart = $fileComponents[3]
-            $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
-            
-            # Compare the extracted date to the cutoff date
-            if ($fileDate -lt $cutoffDate) {
-                # Construct the URI for the file
-                $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$($file.CloudPath)"
+            if ($fileComponents.Length -ge 5) { # Ensure there are enough parts in the filename
+                $datePart = $fileComponents[4] # Corrected index based on the sample filename
+                $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
                 
-                # Command to remove the file using azcopy
-                $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
-                
-                # Execute the removal command
-                Invoke-Expression $azCopyCommand
+                # Compare the extracted date to the cutoff date
+                if ($fileDate -lt $cutoffDate) {
+                    # Construct the URI for the file
+                    $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$($file.CloudPath)"
+                    
+                    # Command to remove the file using azcopy
+                    $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
+                    
+                    # Execute the removal command
+                    Invoke-Expression $azCopyCommand
+                }
+            } else {
+                Write-Warning "Filename does not have enough parts to extract date: $($file.Name)"
             }
         }
     } catch [System.Management.Automation.MethodInvocationException] {
@@ -45,6 +49,7 @@ foreach ($file in $files) {
 }
 
 pause
+
 
 
 url : https://uedev28file02.file.core.windows.net/dev87/APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
