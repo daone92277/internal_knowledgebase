@@ -81,3 +81,39 @@ foreach ($item in $items) {
 
 # This will help to understand what property should be used to filter out directories accurately.
 
+
+# ***** CONFIGURE THESE VALUES FOR YOUR ENVIRONMENT *****
+$storageAccountName = "uedev28file02"
+$shareName = "dev87"
+$targetFolder = "APP2APP/SystemTest4/Outbound/Archive"
+$storageAccountKey = "<YourStorageAccountKey>"
+
+# Calculate the cutoff date (for example, deleting files older than 30 days)
+$cutoffDate = (Get-Date).AddDays(-30)
+
+# Create a storage context
+$storageContext = New-AzStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey
+
+# Retrieve all files in the specified directory
+$files = Get-AzStorageFile -Context $storageContext -ShareName $shareName -Path $targetFolder
+
+# Iterate through each file
+foreach ($file in $files) {
+    # Ensure that only files are processed (skip directories)
+    if (-not $file.IsDirectory) {
+        # Convert Azure's File's LastWriteTime to DateTime
+        $fileLastWriteTime = [DateTime]$file.LastWriteTime
+
+        # Check if the file's last write time is older than the cutoff date
+        if ($fileLastWriteTime -lt $cutoffDate) {
+            # Deleting the file
+            Remove-AzStorageFile -Context $storageContext -ShareName $shareName -Path $file.Name -Force
+            Write-Host "Deleted file: $($file.Name)"
+        }
+    }
+}
+
+# End of the script
+Write-Host "Completed deletion of old files."
+
+
