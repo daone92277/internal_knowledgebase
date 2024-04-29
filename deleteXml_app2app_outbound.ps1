@@ -10,42 +10,42 @@ $cutoffDate = (Get-Date).AddDays(-1).Date
 # Authenticate with Azure Storage
 $ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
 
-# Get files from the Azure File Share
-$items = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { -not $_.IsDirectory }
+# Get files from the Azure File Share, ensuring only files are listed
+$files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { -not $_.IsDirectory }
 
 # Filter and remove files older than 1 day based on the timestamp in the filename
-foreach ($item in $items) {
+foreach ($file in $files) {
     try {
-        # Check if it's a file and not a directory
-        if ($item.GetType().Name -ne "CloudFileDirectory") {
-            # Attempt to extract the date portion from the filename
-            $dateString = $item.Name -split "_AppToAppFeed_"
-            if ($dateString.Length -lt 2) {
-                Write-Warning "Filename format unexpected for file: $($item.Name)"
-                continue
-            }
-            $datePortion = ($dateString[1] -split "_")[0]
-            $fileDate = [datetime]::ParseExact($datePortion, "MM-dd-yyyy", $null)
+        # Only process files that are not directories
+        if (-not $file.IsDirectory) {
+            # Extract date from the filename assuming the format is "<prefix>_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
+            $fileComponents = $file.Name -split '_'
+            $datePart = $fileComponents[3]
+            $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
             
             # Compare the extracted date to the cutoff date
             if ($fileDate -lt $cutoffDate) {
-                # Construct the full file path
-                $filePath = Join-Path -Path $item.DirectoryPath -ChildPath $item.Name
+                # Construct the URI for the file
+                $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$($file.CloudPath)"
                 
-                # Remove the file (remove the -WhatIf switch to actually delete the files)
-                Remove-AzStorageFile -ShareName $shareName -Path $filePath -Context $ctx -WhatIf
+                # Command to remove the file using azcopy
+                $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
+                
+                # Execute the removal command
+                Invoke-Expression $azCopyCommand
             }
         }
     } catch [System.Management.Automation.MethodInvocationException] {
-        Write-Warning "Failed to delete file: $($item.Name)"
+        Write-Warning "Failed to delete file: $($file.Name)"
     } catch [System.FormatException] {
-        Write-Warning "Date parsing failed for file: $($item.Name) with date part: $datePortion"
+        Write-Warning "Date parsing failed for file: $($file.Name) with date part: $datePart"
     } catch {
-        Write-Warning "An unknown error occurred with file: $($item.Name)"
+        Write-Warning "An unknown error occurred with file: $($file.Name)"
     }
 }
 
 pause
+
 
 url : https://uedev28file02.file.core.windows.net/dev87/APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
 path : APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
