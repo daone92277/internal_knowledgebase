@@ -47,8 +47,8 @@ foreach ($item in $items) {
 
 pause
 
-
-
+url : https://uedev28file02.file.core.windows.net/dev87/APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
+path : APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
 
 638490461205082995_AppToAppFeed_04-18-2024_12724.xml
 638490486856700998_AppToAppFeed_04-18-2024_12725.xml
