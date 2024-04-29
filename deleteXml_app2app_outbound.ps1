@@ -10,33 +10,29 @@ $cutoffDate = (Get-Date).AddDays(-1).Date
 # Authenticate with Azure Storage
 $ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
 
-# Get files from the Azure File Share, ensuring only files are listed
+# Get files from the Azure File Share, ensuring only files are listed, within the 'Archive' folder
 $files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { -not $_.IsDirectory }
 
 # Filter and remove files older than 1 day based on the timestamp in the filename
 foreach ($file in $files) {
     try {
-        # Only process files that are not directories
+        # Ensure that we are only processing files
         if (-not $file.IsDirectory) {
-            # Extract date from the filename assuming the format is "<prefix>_Feedback_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
+            # Extract date from the filename assuming the format "<prefix>_Feedback_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
             $fileComponents = $file.Name -split '_'
-            if ($fileComponents.Length -ge 5) { # Ensure there are enough parts in the filename
-                $datePart = $fileComponents[3] # Corrected index based on the sample filename
-                $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
+            $datePart = $fileComponents[3] # Extract the date part
+            $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
+            
+            # Compare the extracted date to the cutoff date
+            if ($fileDate -lt $cutoffDate) {
+                # Construct the URI for the file
+                $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$targetFolder/$($file.Name)"
                 
-                # Compare the extracted date to the cutoff date
-                if ($fileDate -lt $cutoffDate) {
-                    # Construct the URI for the file
-                    $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$($file.CloudPath)"
-                    
-                    # Command to remove the file using azcopy
-                    $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
-                    
-                    # Execute the removal command
-                    Invoke-Expression $azCopyCommand
-                }
-            } else {
-                Write-Warning "Filename does not have enough parts to extract date: $($file.Name)"
+                # Command to remove the file using azcopy
+                $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
+                
+                # Execute the removal command
+                Invoke-Expression $azCopyCommand
             }
         }
     } catch [System.Management.Automation.MethodInvocationException] {
@@ -49,6 +45,7 @@ foreach ($file in $files) {
 }
 
 pause
+
 
 
 
