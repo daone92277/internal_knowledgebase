@@ -35,9 +35,14 @@ if ($folderExists) {
         # Debug: Display the file path being processed
         Write-Host "Processing file: $($_.Path); Creation Time: $($_.Properties.CreationTime)"
 
-        # Check and delete if the file is older than the cutoff date
-        if ($_.Properties.CreationTime -lt $cutoffDate) {
-            Remove-AzStorageFile -Context $context -ShareName $shareName -Path $_.Path -Force
+        # Check if the file path is not null or empty
+        if ([string]::IsNullOrEmpty($_.Path)) {
+            Write-Warning "Skipping file with empty or null path"
+        } else {
+            # Check and delete if the file is older than the cutoff date
+            if ($_.Properties.CreationTime -lt $cutoffDate) {
+                Remove-AzStorageFile -Context $context -ShareName $shareName -Path $_.Path -Force
+            }
         }
     }
 
@@ -48,6 +53,7 @@ if ($folderExists) {
 }
 
 pause
+
 
 <# Processing file: ; Creation Time:
 Remove-AzStorageFile: C:\Users\DG04170\OneDrive - The Hartford\Desktop\pythonScripts\POWERSHELL\afsDelete_nonbilling\deleteXml_app2app_outbound.ps1:40
