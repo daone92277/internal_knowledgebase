@@ -1,119 +1,61 @@
-# ***** ADJUST THESE VALUES FOR YOUR ENVIRONMENT *****
+# ========= Preparation =========
+
+# Import the module for working with Azure Storage
+Import-Module Az.Storage
+
+# Define your variables
 $storageAccountName = "uedev28file02"
 $shareName = "dev87"
 $targetFolder = "APP2APP/SystemTest4/Outbound/Archive"
 $sasToken = "?sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-07-02T04%3A03%3A10Z&st=2024-03-19T20%3A03%3A10Z&spr=https&sig=EJfN%2Br9ZVNGIlYSsemYnEsSCxGfCMtI%2BtOVjHeLxOns%3D"
 
-# Calculate the cutoff date (1 day prior to today)
-$cutoffDate = (Get-Date).AddDays(-1).Date
+# Retention period (in days)
+$retentionPeriod = 30
 
-# Authenticate with Azure Storage
-$ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
+# ========= Core Logic =========
 
-# Get files from the Azure File Share, ensuring only files are listed
-$files = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder | Where-Object { -not $_.IsDirectory }
+# Calculate the cutoff date
+$cutoffDate = (Get-Date).AddDays(-$retentionPeriod)
 
-# Filter and remove files older than 1 day based on the timestamp in the filename
-foreach ($file in $files) {
-    try {
-        # Only process files that are not directories
-        if (-not $file.IsDirectory) {
-            # Extract date from the filename assuming the format "<prefix>_AppToAppFeed_MM-dd-yyyy_<suffix>.xml"
-            $fileComponents = $file.Name -split '_'
-            if ($fileComponents.Length -gt 2) { # Ensure there are enough parts in the filename
-                $datePart = $fileComponents[2] # Corrected index for the date part
-                $fileDate = [datetime]::ParseExact($datePart, "MM-dd-yyyy", $null)
-                
-                # Compare the extracted date to the cutoff date
-                if ($fileDate -lt $cutoffDate) {
-                    # Construct the URI for the file
-                    $fileUri = "https://$storageAccountName.file.core.windows.net/$shareName/$targetFolder/$($file.Name)"
-                    
-                    # Command to remove the file using azcopy
-                    $azCopyCommand = "azcopy remove `"$fileUri`" --recursive=true --sas-token `"$sasToken`""
-                    
-                    # Execute the removal command
-                    Invoke-Expression $azCopyCommand
-                }
-            } else {
-                Write-Warning "Filename does not have enough parts to extract date: $($file.Name)"
-            }
+# Create a storage context (connect to your Azure File share)
+$context = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
+
+# Check if the target folder exists
+$folderExists = $false
+try {
+    Get-AzStorageFile -Context $context -ShareName $shareName -Path $targetFolder -ErrorAction Stop | Out-Null
+    $folderExists = $true
+} catch {
+    # Error indicates the folder likely doesn't exist 
+}
+
+if ($folderExists) {
+    # Get files in the target folder and iterate through them
+    Get-AzStorageFile -Context $context -ShareName $shareName -Path $targetFolder | ForEach-Object {
+        # Debug: Display the file path being processed
+        Write-Host "Processing file: $($_.Path); Creation Time: $($_.Properties.CreationTime)"
+
+        # Check and delete if the file is older than the cutoff date
+        if ($_.Properties.CreationTime -lt $cutoffDate) {
+            Remove-AzStorageFile -Context $context -ShareName $shareName -Path $_.Path -Force
         }
-    } catch [System.Management.Automation.MethodInvocationException] {
-        Write-Warning "Failed to delete file: $($file.Name)"
-    } catch [System.FormatException] {
-        Write-Warning "Date parsing failed for file: $($file.Name) with date part: $datePart"
-    } catch {
-        Write-Warning "An unknown error occurred with file: $($file.Name)"
     }
+
+    # ========= (Optional) Verbose Output =========
+    Write-Host "Files older than $cutoffDate in the Azure File share have been permanently deleted."
+} else {
+    Write-Warning "Target folder '$targetFolder' not found in the file share."
 }
 
 pause
 
-
-
-
-
-url : https://uedev28file02.file.core.windows.net/dev87/APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
-path : APP2APP/SystemTest4/Outbound/Archive/638493942218567792_Feedback_AppToAppFeed_04-22-2024_12820.xml
-
-638490461205082995_AppToAppFeed_04-18-2024_12724.xml
-638490486856700998_AppToAppFeed_04-18-2024_12725.xml
-638490522428709041_AppToAppFeed_04-18-2024_12726.xml
-638490559948810235_AppToAppFeed_04-18-2024_12727.xml
-
-# ***** ADJUST THESE VALUES FOR YOUR ENVIRONMENT *****
-$storageAccountName = "uedev28file02"
-$shareName = "dev87"
-$targetFolder = "APP2APP/SystemTest4/Outbound/Archive"
-$sasToken = "?sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-07-02T04%3A03%3A10Z&st=2024-03-19T20%3A03%3A10Z&spr=https&sig=EJfN%2Br9ZVNGIlYSsemYnEsSCxGfCMtI%2BtOVjHeLxOns%3D"
-
-# Authenticate with Azure Storage
-$ctx = New-AzStorageContext -StorageAccountName $storageAccountName -SasToken $sasToken
-
-# Get files from the Azure File Share, and list properties to check if they are files or directories
-$items = Get-AzStorageFile -ShareName $shareName -Context $ctx -Path $targetFolder
-
-# List each item's properties to check
-foreach ($item in $items) {
-    Write-Host "Name: $($item.Name), Type: $($item.CloudFileDirectory.GetType()), IsDirectory: $($item.IsDirectory)"
-}
-
-# This will help to understand what property should be used to filter out directories accurately.
-
-
-# ***** CONFIGURE THESE VALUES FOR YOUR ENVIRONMENT *****
-$storageAccountName = "uedev28file02"
-$shareName = "dev87"
-$targetFolder = "APP2APP/SystemTest4/Outbound/Archive"
-$storageAccountKey = "<YourStorageAccountKey>"
-
-# Calculate the cutoff date (for example, deleting files older than 30 days)
-$cutoffDate = (Get-Date).AddDays(-30)
-
-# Create a storage context
-$storageContext = New-AzStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey
-
-# Retrieve all files in the specified directory
-$files = Get-AzStorageFile -Context $storageContext -ShareName $shareName -Path $targetFolder
-
-# Iterate through each file
-foreach ($file in $files) {
-    # Ensure that only files are processed (skip directories)
-    if (-not $file.IsDirectory) {
-        # Convert Azure's File's LastWriteTime to DateTime
-        $fileLastWriteTime = [DateTime]$file.LastWriteTime
-
-        # Check if the file's last write time is older than the cutoff date
-        if ($fileLastWriteTime -lt $cutoffDate) {
-            # Deleting the file
-            Remove-AzStorageFile -Context $storageContext -ShareName $shareName -Path $file.Name -Force
-            Write-Host "Deleted file: $($file.Name)"
-        }
-    }
-}
-
-# End of the script
-Write-Host "Completed deletion of old files."
-
-
+<# Processing file: ; Creation Time:
+Remove-AzStorageFile: C:\Users\DG04170\OneDrive - The Hartford\Desktop\pythonScripts\POWERSHELL\afsDelete_nonbilling\deleteXml_app2app_outbound.ps1:40
+Line |
+  40 |  … rageFile -Context $context -ShareName $shareName -Path $_.Path -Force
+     |                                                           ~~~~~~~
+     | Cannot validate argument on parameter 'Path'. The argument is null or empty. Provide an argument that is not
+     | null or empty, and then try the command again.
+Files older than 04/02/2024 11:27:11 in the Azure File share have been permanently deleted.
+Press Enter to continue...:
+ #>
