@@ -1,4 +1,0 @@
-"https://ueuat28file01.blob.core.windows.net/newcobillinglogs/Logs?sv=2021-12-02&ss=bfqt&srt=sco&sp=rwlacupitfx&se=2024-05-03T02%3A51%3A14Z&st=2023-05-02T18%3A51%3A14Z&spr=https&sig=5dYMIoMRT2iEQjDfrMbNHJACHzetUOuOYhumK%2BAZ1j8%3D" 
-
-
-az storage blob list --account-name your-storage-account --container-name your-container-name --query "[?properties.lastModified>=ago('30d')].name" --output tsv | xargs -I {} azcopy rm "https://ueuat28file01.blob.core.windows.net/newcobillinglogs/Logs"
