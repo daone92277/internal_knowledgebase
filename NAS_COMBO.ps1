@@ -30,11 +30,13 @@ try {
     $context = New-AzureStorageContext -StorageAccountName "ueprd28file01" -SasToken "sv=2021-10-04&ss=bf&srt=sco&st=2024-06-28T05%3A00%3A00Z&se=2026-07-01T05%3A00%3A00Z&sp=rwlac&sig=ANOOt1gEMFi%2FK3uPlhwodIEwJlgtaDejJIkQvxFytc4%3D"
 
     # check for job failures in AFS log files
-    $files = Get-AzureStorageFile -Context $context -ShareName "prd" -Path "NewCo/Logs"
+    $files = Get-AzureStorageFile -Context $context -ShareName "prd" -Path "NewCo/Logs" -Recurse
     foreach ($file in $files) {
-        $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Name | Out-String
-        if ($content -match "job failed" -or $content -match "job failure") {  # replace with the actual error messages
-            $emailBody += "A job failure has been detected in the log file: " + $file.Name + "`n"
+        if ($file -is [Microsoft.WindowsAzure.Storage.File.CloudFile]) {
+            $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Name | Out-String
+            if ($content -match "job failed" -or $content -match "job failure") {
+                $emailBody += "A job failure has been detected in the log file: " + $file.Name + "`n"
+            }
         }
     }
 
