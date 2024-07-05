@@ -10,6 +10,27 @@ $to = "david.greene@thehartford.com", "carlos.aponte@thehartford.com"
 # initialize email body
 $emailBody = ""
 
+# Function to recursively get all files in a directory
+function Get-AllFiles {
+    param (
+        [Parameter(Mandatory = $true)]
+        [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory] $Directory
+    )
+    
+    $files = @()
+
+    $items = Get-AzureStorageFile -Context $context -ShareName "prd" -Path $Directory.Prefix
+    foreach ($item in $items) {
+        if ($item -is [Microsoft.WindowsAzure.Storage.File.CloudFile]) {
+            $files += $item
+        } elseif ($item -is [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory]) {
+            $files += Get-AllFiles -Directory $item
+        }
+    }
+
+    return $files
+}
+
 try {
     # check for new files in NAS directory
     $today = Get-Date
@@ -29,14 +50,17 @@ try {
     # authenticate with Azure
     $context = New-AzureStorageContext -StorageAccountName "ueprd28file01" -SasToken "sv=2021-10-04&ss=bf&srt=sco&st=2024-06-28T05%3A00%3A00Z&se=2026-07-01T05%3A00%3A00Z&sp=rwlac&sig=ANOOt1gEMFi%2FK3uPlhwodIEwJlgtaDejJIkQvxFytc4%3D"
 
+    # Get the root directory
+    $rootDir = Get-AzureStorageFile -Context $context -ShareName "prd" -Path "NewCo/Logs" | Where-Object { $_ -is [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory] }
+
+    # Get all files recursively
+    $files = Get-AllFiles -Directory $rootDir
+
     # check for job failures in AFS log files
-    $files = Get-AzureStorageFile -Context $context -ShareName "prd" -Path "NewCo/Logs" -Recurse
     foreach ($file in $files) {
-        if ($file -is [Microsoft.WindowsAzure.Storage.File.CloudFile]) {
-            $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Name | Out-String
-            if ($content -match "job failed" -or $content -match "job failure") {
-                $emailBody += "A job failure has been detected in the log file: " + $file.Name + "`n"
-            }
+        $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Name | Out-String
+        if ($content -match "job failed" -or $content -match "job failure") {
+            $emailBody += "A job failure has been detected in the log file: " + $file.Name + "`n"
         }
     }
 
