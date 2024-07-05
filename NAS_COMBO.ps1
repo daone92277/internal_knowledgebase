@@ -1,6 +1,6 @@
 # specify directories to watch
 $nas_dir = "Z:\\Collections\\Prod\\Outbound"
-$afs_dir = "https://ueprd28file01.file.core.windows.net/prd/NewCo/Logs"
+$afs_dir = "NewCo/Logs"
 
 # specify email details
 $smtp_server = "higmx.thehartford.com"
@@ -14,17 +14,18 @@ $emailBody = ""
 function Get-AllFiles {
     param (
         [Parameter(Mandatory = $true)]
-        [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory] $Directory
+        [string] $ShareName,
+        [string] $Path
     )
     
     $files = @()
 
-    $items = Get-AzureStorageFile -Context $context -ShareName "prd" -Path $Directory.Prefix
+    $items = Get-AzureStorageFile -Context $context -ShareName $ShareName -Path $Path
     foreach ($item in $items) {
         if ($item -is [Microsoft.WindowsAzure.Storage.File.CloudFile]) {
-            $files += $item
+            $files += ,$item
         } elseif ($item -is [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory]) {
-            $files += Get-AllFiles -Directory $item
+            $files += Get-AllFiles -ShareName $ShareName -Path $item.Prefix
         }
     }
 
@@ -50,17 +51,14 @@ try {
     # authenticate with Azure
     $context = New-AzureStorageContext -StorageAccountName "ueprd28file01" -SasToken "sv=2021-10-04&ss=bf&srt=sco&st=2024-06-28T05%3A00%3A00Z&se=2026-07-01T05%3A00%3A00Z&sp=rwlac&sig=ANOOt1gEMFi%2FK3uPlhwodIEwJlgtaDejJIkQvxFytc4%3D"
 
-    # Get the root directory
-    $rootDir = Get-AzureStorageFile -Context $context -ShareName "prd" -Path "NewCo/Logs" | Where-Object { $_ -is [Microsoft.WindowsAzure.Storage.File.CloudFileDirectory] }
-
-    # Get all files recursively
-    $files = Get-AllFiles -Directory $rootDir
+    # Get all files recursively from the root directory
+    $files = Get-AllFiles -ShareName "prd" -Path $afs_dir
 
     # check for job failures in AFS log files
     foreach ($file in $files) {
-        $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Name | Out-String
+        $content = Get-AzureStorageFileContent -Context $context -ShareName "prd" -Path $file.Prefix | Out-String
         if ($content -match "job failed" -or $content -match "job failure") {
-            $emailBody += "A job failure has been detected in the log file: " + $file.Name + "`n"
+            $emailBody += "A job failure has been detected in the log file: " + $file.Prefix + "`n"
         }
     }
 
@@ -70,7 +68,7 @@ try {
         Send-MailMessage -From $from -To $to -Subject $subject -Body $emailBody -SmtpServer $smtp_server
     }
 } catch {
-    Write-Host $_.Exception.Message
+    Write-Host "An error occurred: $_.Exception.Message"
 }
 
 pause
