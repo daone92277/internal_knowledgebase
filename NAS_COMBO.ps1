@@ -1,6 +1,5 @@
-
 # specify directories to watch
-$nas_dir = "Z:\Collections\Prod\Outbound"
+$nas_dir = "Z:\\Collections\\Prod\\Outbound"
 $afs_dir = "https://ueprd28file01.file.core.windows.net/prd/NewCo/Logs"
 
 # specify email details
@@ -16,11 +15,17 @@ try {
     $today = Get-Date
     $latest = Get-ChildItem -Path $nas_dir -Recurse | Where-Object {!$_.PSIsContainer} | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($latest.LastWriteTime.Date -ne $today.Date) {
-        $emailBody += "No new file has been added today in NAS location \Collections\Prod\Outbound: " + $nas_dir + "`n"
+        $emailBody += "No new file has been added today in NAS location \\Collections\\Prod\\Outbound: " + $nas_dir + "`n"
     }
-	# Install Azure.Storage module
-	Install-Module -Name Azure.Storage -Scope CurrentUser
-	
+
+    # Install Azure.Storage module if not already installed
+    if (-not (Get-Module -ListAvailable -Name Azure.Storage)) {
+        Install-Module -Name Azure.Storage -Scope CurrentUser -Force -AllowClobber -Confirm:$false
+    }
+    
+    # Import Azure.Storage module
+    Import-Module Azure.Storage
+
     # authenticate with Azure
     $context = New-AzureStorageContext -StorageAccountName "ueprd28file01" -SasToken "sv=2021-10-04&ss=bf&srt=sco&st=2024-06-28T05%3A00%3A00Z&se=2026-07-01T05%3A00%3A00Z&sp=rwlac&sig=ANOOt1gEMFi%2FK3uPlhwodIEwJlgtaDejJIkQvxFytc4%3D"
 
